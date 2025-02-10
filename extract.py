@@ -3,13 +3,14 @@ import datetime
 from datetime import datetime
 import sys
 
-# For subject 0 (1113) the start time was 31/01/2025 15:47 and subject 1(1114) it was 21/01/2025 12:50.
+# For subject 0 (1113) the start time was 31/01/2025 15:47 and subject 1(1114) it was 21/01/2025 13:52.
 
 experiment_duration = 30 # mins
 
 def loadRawData(filename, fromTimestamp):
     outdata = []
     fs = 250 # Hz
+    maxdtjitter = 1000 # ms
 
     # Load data using np.genfromtxt to handle comma-separated values
     data = np.genfromtxt(filename, delimiter=',',dtype=['uint64','float','float'])
@@ -29,14 +30,14 @@ def loadRawData(filename, fromTimestamp):
                         t = currentTS - fromEpoch
                     if prevTs > 0:
                         dt = currentTS - prevTs
-                        if (dt > 1000):
+                        if (dt > maxdtjitter):
                             print("Data not continous. dt=",dt,"At timestamp",currentTS,datetime.utcfromtimestamp(currentTS/1000.0))
                             return np.array(outdata)
-                    a = np.array([t, row[1], row[2]])
+                    a = np.array([t/1000.0, row[1], row[2]])
                     # print(a)
                     outdata.append(a)
-                    t = t + 1.0/fs
-                    prevTs = row[0]
+                    t = t + 1000.0/fs
+                    prevTs = currentTS
 
     if (len(outdata) < 1):
         for row in data:
@@ -55,15 +56,14 @@ def loadRawData(filename, fromTimestamp):
 
 def loadHRdata(filename, fromTimestamp):
     outdata = []
-    timeout_discontinous = 10 # secs
+    timeout_discontinous = 10*1000 # secs
 
     # Load data using np.genfromtxt to handle comma-separated values
-    data = np.genfromtxt(filename, delimiter=',',dtype=['uint64','float'])
+    data = np.genfromtxt(filename, delimiter='\t',dtype=['uint64','float'])
 
     fromEpoch = np.int64(fromTimestamp.timestamp() * 1000)
     toEpoch = np.int64(fromEpoch + 1000 * 60 * experiment_duration);
     isFirst = True
-    t = -1
     prevTs = -1
     
     for row in data:
@@ -71,17 +71,14 @@ def loadHRdata(filename, fromTimestamp):
             if (row[0] > fromEpoch):
                 if row[0] < toEpoch:
                     currentTS = row[0]
-                    if t < 0:
-                        t = currentTS - fromEpoch
                     if prevTs > 0:
                         dt = currentTS - prevTs
                         if (dt > timeout_discontinous):
                             print("Data not continous. dt=",dt,"At timestamp",currentTS,datetime.utcfromtimestamp(currentTS/1000.0))
                             return np.array(outdata)
-                    a = np.array([t, row[1]])
+                    a = np.array([(currentTS - fromEpoch)/1000.0, row[1]])
                     # print(a)
                     outdata.append(a)
-                    t = t + 1.0/fs
                     prevTs = row[0]
 
     if (len(outdata) < 1):
@@ -108,9 +105,8 @@ if (len(sys.argv) < 4):
 fromTS = datetime.strptime(sys.argv[1]+" "+sys.argv[2],"%d/%m/%Y %H:%M:%S")
 rawdata = loadRawData('adc_data.tsv', fromTS)
 print("Number of datapoints raw:",len(rawdata))
-np.savetxt(sys.argv[3],rawdata,delimiter='\t')
+np.savetxt(sys.argv[3],rawdata,delimiter='\t',fmt='%f')
 
 HRdata = loadHRdata('attyshrv_heartrate.tsv', fromTS)
-print("Number of datapoints HR:",len(rawdata))
-np.savetxt(sys.argv[4],HRdata,delimiter='\t')
-
+print("Number of datapoints HR:",len(HRdata))
+np.savetxt(sys.argv[4],HRdata,delimiter='\t',fmt='%f')
