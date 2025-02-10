@@ -3,7 +3,7 @@ import datetime
 from datetime import datetime
 import sys
 
-# For subject 0 (1113) the start time was 31/01/2025 15:47 and subject 1(1114) it was 21/01/2025 13:52.
+# subject 0 it was 21/01/2025 13:52. subject 1 start time was 31/01/2025 15:47
 
 experiment_duration = 30 # mins
 
